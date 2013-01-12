@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width">
+<meta charset="utf-8">
+<title>Local Storage Calculator</title>
+<script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.3/jquery.min.js"></script>
+<script src="http://ajax.cdnjs.com/ajax/libs/json2/20110223/json2.js"></script>
+<script src="http://code.jquery.com/ui/1.9.2/jquery-ui.js"></script>
+<link rel="stylesheet" href="http://code.jquery.com/ui/1.9.2/themes/base/jquery-ui.css" />
+<style type="text/css">
+a {color:blue;cursor:pointer;}
+#progressbar{width:80%;}
+</style>
+</head>
+<body>
+<div class="header">
+	<h1>Local Storage Calculator</h1>
+	<p>This is a simple page that tests your browser for how much space is available with localStorage and returns with the amount available to store data in.</p>
+	<p>This test uses UTF-8 charset and a maximum size of 10MB (Default browser will be around 5MB)</p>
+    <div id="progressbar"></div>
+    <div class="message">
+    </div>
+</div>
+<script type="text/javascript">
+$(document).ready(function() {
+	window.addEventListener("DOMContentLoaded", loadSavedData, false);
+	var storeSpace = 0;
+	var maxMBToTest = 10;
+	var itemCount = 0;
+	
+	function loadSavedData(){
+		$('#progressbar').hide();
+		var tmpstoreSpace = localStorage.getItem("storeSpace"); // get data from local storage
+		if (tmpstoreSpace != null){
+			storeSpace = tmpstoreSpace;
+			var currentSize = Math.ceil((sizeofAllStorage()/1024/1024)*100)/100; // get into MB
+			var barwidth = Math.ceil(((currentSize / (storeSpace)) * 100)); // calculate percentage of bar to be filled
+			$('#progressbar').show();
+			$('.message').html('<strong>'+currentSize+'MB</strong> used out of <strong>'+storeSpace+'MB</strong> available<br /><br /><a id="addblock">Add block of data</a><br /><a id="clearblock">Clear data</a><br /><a id="clearall">Refresh your test</a>');
+			$( "#progressbar" ).progressbar({
+				value: barwidth
+			});
+		} else {
+			$('.message').html('Please <a id="runtest">Click Here</a> to test how much storage you have available');// request user to test browser
+		}
+	}	
+	
+	$('#clearall').live('click', function() { // clears all localStorage data
+		localStorage.clear();
+		loadSavedData();
+	});
+	
+	$('#clearblock').live('click', function() {// clears block data that has been added
+		localStorage.setItem("data", '');
+		loadSavedData();
+	});
+	
+	$('#addblock').live('click', function() { // adds a block of data to the local storage
+		var testPacket = new Array( 102500 ).join( "a" ); // create 1024 characters so 1KB
+		var saveItem = {
+			"value": testPacket,
+			"label": itemCount
+		};
+		itemCount++; // increase labelname by 1
+		
+		// get existing saved data
+		savedData = localStorage.getItem("data"); // get other data from local storage
+		if (savedData && savedData != null) { // if not empty
+			savedData = JSON.parse(savedData); // get data from returned json string
+			savedData = savedData['savedData']; // set savedData from dataToSave item
+		} else { // is currently empty
+			savedData = [];
+		}
+		savedData.push(saveItem); // push new object to savedData
+		var cleanData = JSON.stringify({savedData: savedData}); // generate clean data
+		localStorage.setItem("data", cleanData); // save new data locally
+		loadSavedData(); // reload experience
+	});
+	
+	$('#recheck').live('click', function() { // reloads experience
+		loadSavedData();
+	});
+	
+	$('#runtest').live('click', function() { // runs the storage test function
+		$('.message').html('Running test:<br />Current space = <span id="currentDisplay"></span>');
+		runStorageTest();
+	});
+	
+	function sizeofAllStorage(){  // provide the size in bytes of the data currently stored
+		var size = 0;
+		for (i=0; i<=localStorage.length-1; i++)  
+		{  
+			key = localStorage.key(i);  
+			size += lengthInUtf8Bytes(localStorage.getItem(key));
+		}  
+		return size;
+	}
+	
+	function runStorageTest(){ // fill up all data in local storage to see how much we can squeeze in
+		localStorage.clear();
+		var i = 0;
+		var testPacket = new Array( 1025 ).join( "a" ); // create 1024 characters so 1KB
+		while (i<maxMBToTest){ // MB level
+			$('#currentDisplay').html(i+'Mb');
+			var t = 0;
+			while (t<1025){ // KB level
+				try {
+					localStorage.setItem(i+"|"+t, testPacket);
+				} catch( error ) {
+					var kbsaved = Math.floor(((t / 1024) * 100)); // calculate percentage of 1024
+					storeSpace = i+'.'+kbsaved; // add MB and KB values
+					storeSpace =  (Math.floor(storeSpace*100))/100; // rounds down the value
+					t = 1025;
+					i = maxMBToTest+1;
+				}
+				t++;
+			}
+			i++;
+		}
+		$('.message').html('Running test:<br />Space Available = '+storeSpace+'Mb<br /><a id="recheck">Click Here</a> to see your percentage bar of storage');
+		localStorage.clear(); // clear all local storage
+		localStorage.setItem("storeSpace", storeSpace); // store this value
+	}
+	
+	function lengthInUtf8Bytes(str) {
+	  // Matches only the 10.. bytes that are non-initial characters in a multi-byte sequence.
+	  var m = encodeURIComponent(str).match(/%[89ABab]/g);
+	  return str.length + (m ? m.length : 0);
+	}
+	
+});
+</script>
+</body>
+</html>
